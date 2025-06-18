@@ -1,0 +1,343 @@
+---
+title: "U.S. Teen Pregnancies and Childbearing"
+author: "Enkhtuul Batkhuyag"
+date: "2024-10-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(maps)
+library(mapproj)
+library(gapminder)
+library(countrycode)
+library(ggthemes)
+library(usmap)
+```
+
+
+```{r, include=FALSE}
+county <- map_data("county")
+head(county)
+
+teenBirth <- read_csv("teen_birth.csv")
+head(teenBirth)
+```
+
+## Introduction
+
+Teen births in the U.S. refer to pregnancies among females aged 15-19. It is associated with high risk of health, social and financial problems for teenagers, their family and society overall. Report from National Center for Health Statistics (NCHS) suggest that teen adolescent birth rate has decreased consistently throughout the years, however United States is still considered a country with higher teen birth rates among those other developed countries. Teen pregnancies can have long-term consequences for both the mother and child such as possible reduced opportunities for education, financial difficulties and adverse health outcomes. Factors influencing to this event can include lower education, limited access and understanding on contraception and healthcare and socio-economic status. This research is focused on investigating the trends and characteristics of teen birth rates  with American's perspective on Abortion of those who participated in Gallup survey. 
+
+## Overall trend over the years in the U.S.
+
+```{r, echo=FALSE}
+timeBirth <- teenBirth %>%
+  group_by(Year) %>%
+  summarise(avgBirth = mean(`Birth Rate`))
+
+maxYear <- timeBirth %>%
+  filter(avgBirth == max(avgBirth))
+
+ggplot(timeBirth) +
+  geom_line(aes(x = Year, y = avgBirth), color = "hotpink") +
+  geom_point(data = maxYear, aes(x = Year, y = avgBirth), size = 5, color = "#ff3385") +
+  geom_text(data = maxYear, aes(x = Year, y = avgBirth, label = "47"), 
+            size = 5, position = position_dodge(width = 1), vjust = -1) +
+  scale_y_continuous(breaks = c(0, 15, 30, 45),
+                     limits = c(0, 50)) +
+  labs(x = "", y = "", 
+       title = "Average Teen Birth Rates for Females Aged 15-19 (per 1000 females)",
+       subtitle = "2003-2020, U.S.",
+       caption = "Source: Centers for Disease Control and Prevention, National Center for Health Statistics. (n.d.). 
+       Teen birth rate by state. https://www.cdc.gov/nchs/pressroom/sosmap/teen-births/teenbirths.htm") +
+  theme_minimal() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        title = element_text(size = 10, face = "bold", family="serif"))
+```
+
+There is a slight increase in teen births around years 2006-2007 standing around 47 births per 1000 teens. Further investigation on the trends were made in the next section.
+After that until today, teen birth rate in the U.S. has been dropping gradually over the years. This can be explained by the increase in public awareness and openness of teen pregnancy as well as better access to contraceptives and reproductive education programs. 
+
+```{r, message=FALSE, echo=FALSE}
+larc_data <- data.frame(
+  State = c("Northeast", "Midwest", "South", "West",
+            "Alabama", "Alaska", "Arizona", "Arkansas", "California", 
+            "Colorado", "Connecticut", "Delaware", "District of Columbia",
+            "Florida", "Georgia", "Hawaii", "Idaho", "Illinois", 
+            "Indiana", "Iowa", "Kansas", "Kentucky", "Louisiana", 
+            "Maine", "Maryland", "Massachusetts", "Michigan", "Minnesota",
+            "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada",
+            "New Hampshire", "New Jersey", "New Mexico", "New York", 
+            "North Carolina", "North Dakota", "Ohio", "Oklahoma", 
+            "Oregon", "Pennsylvania", "Rhode Island", "South Carolina", 
+            "South Dakota", "Tennessee", "Texas", "Utah", "Vermont", 
+            "Virginia", "Washington", "West Virginia", "Wisconsin", "Wyoming"),
+  Percent = c(6.4, 6.4, 5.3, 9.5, 3.7, 19.6, 5.8, 2.5, 9.0, 25.8, 6.9, 3.9, 17.9, 
+              2.5, 4.1, 14.4, 3.6, 7.7, 1.5, 16.6, 3.1, 2.6, 3.7, 9.5, 8.3, 9.0, 3.3, 8.8,
+              0.7, 3.8, 3.0, 7.2, 3.8, 10.6, 2.1, 7.4, 8.5, 7.4, 3.5, 5.2, 10.0, 
+              11.0, 3.1, 11.6, 6.5, 2.2, 5.8, 9.1, 3.5, 13.8, 7.3, 11.2, 2.0, 5.6, 3.6))
+
+ggplot(larc_data) +
+  geom_bar(aes(x = reorder(State, Percent), y = Percent), fill = "pink",stat = "identity") +
+  coord_flip() +
+  scale_y_continuous(breaks = c(0, 10, 20),
+                     labels = c("0%", "10%", "20%"),
+                     expand = c(0, 0)) +
+  labs(x = "", y = "", 
+       title = "Percentage of female teens aged 15–19 years using LARC", 
+       subtitle = "United States, 2013", caption = "Source: CDC.gov") +
+  theme_minimal() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text.y = element_text(size = 6),
+        title = element_text(size = 10, face = "bold", family="serif"))
+```
+
+Note that the constant decrease in teen birth rates since 2007 is associated with the increased availability and popularity of Long-Acting Reversible Contraceptives (LARCs) like intrauterine devices (IUDs), implants and pills in the states. They became a popular method for younger people because these pregnancy preventing methods require little maintenance, considered relatively safe and are highly effective.
+
+## Demographics & Trends
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+demo <- read_csv("NCHS_-_Teen_Birth_Rates_for_Females_by_Age_Group__Race__and_Hispanic_Origin__United_States.csv")
+demo <- demo %>%
+  group_by(Year, `Race or Hispanic Origin`) %>%
+  summarise(avgBirth = mean(`Birth Rate`)) %>%
+  filter(!grepl("^Non-Hispanic, Single Race", `Race or Hispanic Origin`))
+
+label <- demo %>%
+  group_by(`Race or Hispanic Origin`) %>%
+  filter(Year == 1990)
+
+ggplot(demo) +
+  geom_line(aes(x = Year, y = avgBirth, color = `Race or Hispanic Origin`)) +
+  geom_text(data = label, aes(x = 1980, y = avgBirth, label = `Race or Hispanic Origin`), 
+            hjust = 0.5, size = 3) +
+  geom_vline(aes(xintercept = 2007)) +
+  geom_text(data = label, aes(x = 2007, y = 100, label = "The Great\nRecession"), 
+            hjust =1.05, size = 3) +
+  geom_vline(aes(xintercept = 1990)) +
+  geom_text(data = label, aes(x = 1990, y = 100, label = "MPP&CHIP\npolicy"), 
+            hjust = 1.05, size = 3) +
+  geom_vline(aes(xintercept = 2009)) +
+  geom_text(data = label, aes(x = 2009, y = 80, label = "MTV\ndocumentary"), 
+            hjust = -0.1, size = 3) +
+  labs(x = "", y = "", 
+       title = "Average Teen Birth Rates for Females Aged 15-19 by Race (per 1000 females)",
+       subtitle = "1960-2018, U.S.",
+       caption = "Source: NCHS - Teen Birth Rates for Females by Age Group, Race, and Hispanic Origin HealthData.Gov.") +
+  theme_minimal() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        legend.position = "none",
+        title = element_text(size = 10, face = "bold", family="serif"))
+```
+
+For further investigation analysis on different demographic groups were made. 
+This consistent lower teen birth rate among White and Asian groups can explained by several factors such as socioeconomic status, cultural attitudes and family expectations. These sub populations in general may have greater access to resources including healthcare and education. Moreover, there might be a strong education attainment and career goals normally, which makes them more likely to delay family planning. On top of having stronger career pursuit there is a cultural attitudes that is against teen pregnancy for Asian and White race groups.
+
+In terms of notable changes, there is a potential influence of the 2007-2009 economic downturn and dramatic rise in level of unemployment since 2007 greatly influencing American's choices on family planing.
+In the 1990s welfare policy targeted directly at teen moms, Minor Parent Provisions (MPP) was reformed which brought a slight increase in teenage birth rate but helped to reduce the rate in long-term. This policy allowed states to use federal funds to aid teen mothers under age of 18. 
+Restrictive abortion policies at the state level such as parental notification laws, mandatory delay periods, and restrictions on Medicaid funding also have an impact on people's decision on childbearing decision. 
+Other research reveals that a particular MTV show released in June, 2009 contributed a lot reducing childbearing rates. This documentary "16 and Pregnant" explores teenager's life as she faces challenges of adolescence while dealing with pregnancy. More importantly, researchers suggest that spread of contraceptives in America from 2007 is mainly responsible for the downturn of the trend.
+
+## Geographic distribution
+```{r, echo=FALSE, warning=FALSE}
+county <- county %>%
+  mutate(region = str_to_title(region),
+         subregion = str_to_title(subregion))
+
+teenBirth2020 <- teenBirth %>%
+  filter(Year == 2020)
+  
+countyMap <- left_join(county, teenBirth2020, by = c("region" = "State", "subregion" = "County"))
+countyMap <- countyMap %>%
+  mutate(Range = cut(`Birth Rate`,
+                     breaks = c(0, 20, 25, 40, 50, 65, 90),
+                     labels = c("0-20", "20-25", "25-40", "40-50", "50-65", "65-90"))) %>%
+  filter(!is.na(Range))
+
+state <- map_data("state")
+state <- state %>%
+  mutate(region = str_to_title(region))
+
+stateMap <- left_join(state, teenBirth2020, by = c("region" = "State"))
+
+stateMap <- stateMap %>%
+  mutate(Range = cut(`Birth Rate`,
+                     breaks = c(0, 20, 25, 40, 50, 65, 90),
+                     labels = c("0-20", "20-25", "25-40", "40-50", "50-65", "65-90"))) %>%
+  filter(!is.na(Range))
+```
+
+```{r, echo=FALSE, warning=FALSE}
+statenames <- stateMap %>%
+  group_by(region) %>%
+  summarise(long = mean(range(long)),
+            lat = mean(range(lat)))
+
+centroid_labels <- usmapdata::centroid_labels("states")  
+
+abb_names <- merge(statenames, centroid_labels, by.x = "region", by.y = "full")
+
+ggplot(stateMap) +
+  geom_polygon(aes(x = long, y = lat, group = group, fill = Range), color = "black", size = 0.1) +
+  geom_text(data = abb_names, aes(x = long, y = lat, label = abbr), 
+            size = 3, check_overlap = TRUE, 
+            position = position_dodge(width = 1), vjust = 0.5) +
+  coord_quickmap() +
+  scale_fill_manual(values = c("0-20" = "#ffe6f2",
+                   "20-25" = "#ff99cc",
+                   "25-40" = "#ff3385",
+                   "40-50" = "#cc0052",
+                   "50-65" = "maroon3",
+                   "65-90" = "deeppink4")) + 
+  labs(title = "Estimated Teen Birth Rates for Females Aged 15-19 (per 1000 females) by State",
+       subtitle = "Continental U.S. 2020, per 1000 females",
+       caption = "Source: Centers for Disease Control and Prevention, National Center for Health Statistics. (n.d.). 
+       Teen birth rate by state. https://www.cdc.gov/nchs/pressroom/sosmap/teen-births/teenbirths.htm",
+       fill = "Female Teen\nBirth Rates") +
+  theme_map() +
+  theme(legend.position = "bottom",
+        title = element_text(size = 10, face = "bold", family="serif"))
+```
+
+There are relatively consistent higher rates of teen childbearing in Southern region of U.S. This trend can be explained by the mix of socioeconomic, political and racial factors. Considerably higher proportion of black community living in the region is contributed to the higher teen birth rate than other regions in America. Also, some states in this region is know for their policies on contraception and reproductive education. Previous graph on LARC usage is an indication of the contraceptive device usage and availability is indeed an important factor influencing teen birth rate trend in the U.S, considering states with high usage of LARC reports lower teen birth rate such as Colorado state.
+
+```{r, echo=FALSE, warning=FALSE}
+ggplot(countyMap) +
+  geom_polygon(aes(x = long, y = lat, group = group, fill = Range), color = "black", size = 0.1) +
+  coord_quickmap() +
+  scale_fill_manual(values = c("0-20" = "#ffe6f2",
+                   "20-25" = "#ff99cc",
+                   "25-40" = "#ff3385",
+                   "40-50" = "#cc0052",
+                   "50-65" = "maroon3",
+                   "65-90" = "deeppink4")) +
+  labs(title = "Estimated Teen Birth Rates for Females Aged 15-19 (per 1000 females) by County",
+       subtitle = "Continental U.S. 2020",
+       caption = "Source: Centers for Disease Control and Prevention, National Center for Health Statistics. (n.d.). 
+       Teen birth rate by state. https://www.cdc.gov/nchs/pressroom/sosmap/teen-births/teenbirths.htm",
+       fill = "Female Teen\nBirth Rates") +
+  theme_map()  +
+  theme(legend.position = "bottom",
+        title = element_text(size = 10, face = "bold", family="serif"))
+```
+
+Further analysis was made on the region level data. Teen birth rates show lower rates in big cities but relatively higher rates in rural areas in 2020. This also indicates educational as well as access to resources disparities.
+
+## Survey
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+q1 <- read_csv("Q1 Should Abortions Be Legal.csv", skip = 1)
+q1 <- q1[-1, ]
+q1 <- q1 %>%
+  mutate(Year = substr(...1, 1, 4)) %>%
+  select(-...1) %>%
+  pivot_longer(cols = -Year,
+               names_to = "Should Abortion Be Legal?",
+               values_to = "NumberOfPeople") 
+q1 <- q1 %>%
+  mutate(NumberOfPeople = as.numeric(NumberOfPeople)) 
+
+q2 <- read_csv("Q2 Are You Pro-Choice Or Pro-Life (NOT AFTER).csv", skip = 2)
+q2 <- q2[-1, ]
+q2 <- q2 %>%
+  mutate(Year = substr(...1, 1, 4)) %>%
+  select(-...1) %>%
+  pivot_longer(cols = -Year,
+               names_to = "Pro-Choice Or Pro-Life",
+               values_to = "NumberOfPeople")
+q2 <- q2 %>%
+  mutate(NumberOfPeople = na_if(NumberOfPeople, "*"), 
+         NumberOfPeople = as.numeric(NumberOfPeople),
+         `Pro-Choice Or Pro-Life` = gsub("(vol.)", "", `Pro-Choice Or Pro-Life`))
+
+q6 <- read_csv("Q6 Is Abortion Morally Acceptable Or Wrong.csv", skip = 1)
+q6 <- q6[-1, ]
+q6 <- q6 %>%
+  mutate(Year = substr(...1, 1, 4)) %>%
+  select(-...1) %>%
+  pivot_longer(cols = -Year,
+               names_to = "Is Abortion Moral?",
+               values_to = "NumberOfPeople")
+q6 <- q6 %>%
+  mutate(NumberOfPeople = na_if(NumberOfPeople, "*"), 
+         NumberOfPeople = as.numeric(NumberOfPeople))
+
+q7 <- read_csv("Q7 Are You Satisfied Or Dissatisfied With Nations Policies On Abortion.csv", skip = 1)
+q7 <- q7[-1, ]
+q7 <- q7 %>%
+  mutate(Year = substr(...1, 1, 4)) %>%
+  select(-...1) %>%
+  pivot_longer(cols = -Year,
+               names_to = "National Abortion Policy Satisfication",
+               values_to = "NumberOfPeople")
+q7 <- q7 %>%
+  mutate(NumberOfPeople = as.numeric(NumberOfPeople))
+```
+
+```{r, echo=FALSE, warning=FALSE}
+ggplot(q1) +
+  geom_point(aes(x = Year, y = NumberOfPeople, color = `Should Abortion Be Legal?`)) +
+  scale_x_discrete(breaks = c("1996", "2007", "2019")) +
+  labs(x = "", y = "", 
+       title = "Number of Americans in a survey standing on either abortion should be legal or not",
+       subtitle = "1975 - 2022",
+       caption = "Source: Gallup (American Institute of Public Opinion)",
+       color = "") +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+        panel.grid.minor.y = element_blank(),
+        title = element_text(size = 10, face = "bold", family="serif"))
+
+ggplot(q2) +
+  geom_point(aes(x = Year, y = NumberOfPeople, color = `Pro-Choice Or Pro-Life`)) +
+  scale_x_discrete(breaks = c("1996", "2007", "2019")) +
+  labs(x = "", y = "", 
+       title = "Number of Americans in a survey Pro-Choice Or Pro-Life",
+       subtitle = "1996 - 2019",
+       caption = "Source: Gallup (American Institute of Public Opinion)",
+       color = "") +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+        panel.grid.minor.y = element_blank(),
+        title = element_text(size = 10, face = "bold", family="serif"))
+
+ggplot(q6) +
+  geom_point(aes(x = Year, y = NumberOfPeople, color = `Is Abortion Moral?`)) +
+  scale_x_discrete(breaks = c("2001", "2012", "2022")) +
+  labs(x = "", y = "", 
+       title = "Number of Americans in a survey opinion on is abortion morally acceptable or not",
+       subtitle = "1996 - 2019",
+       caption = "Source: Gallup (American Institute of Public Opinion)",
+       color = "") +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+        panel.grid.minor.y = element_blank(),
+        title = element_text(size = 10, face = "bold", family="serif"))
+
+ggplot(q7) +
+  geom_point(aes(x = Year, y = NumberOfPeople, color = `National Abortion Policy Satisfication`)) +
+  scale_x_discrete(breaks = c("2001", "2012", "2022")) +
+  labs(x = "", y = "", 
+       title = "Number of Americans in a survey satisfication on National Abortion Policies",
+       subtitle = "1996 - 2019",
+       caption = "Source: Gallup (American Institute of Public Opinion)",
+       color = "") +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+        panel.grid.minor.y = element_blank(),
+        title = element_text(size = 10, face = "bold", family="serif"))
+```
+
+This survey was collected by Gallup, known as the American Institute of Public Opinion in the year form 1975 to 2022 on changing perspectives on abortion in America.
+Our findings suggests that people's view on woman's right to choose in their reproductive decisions has been slightly become socially acceptable with better rates on Pro-choice and accepting attitudes towards abortion. Also, the last visualization indicates that most of the survey participants were satisfies with the U.S. abortion law in some degrees with some being slightly dissatisfies.
+
+## Conclusion
+
+As time goes, technological advancements brings improved access to information on contraceptive devices as well as family planing improved. Also, there might have been an increase in school programs and policies supporting teen pregnancy prevention with the help of social media awareness and openness about reproductive health. These observed trends suggests that increased public acceptance and potentially the better access to education and contraceptive devices played an important role in declining teenage birth rates in America. Whilst, the complexity of potential SEC factors and geographical disparities exists between races. 
